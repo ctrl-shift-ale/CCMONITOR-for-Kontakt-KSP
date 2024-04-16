@@ -2,7 +2,7 @@
 
 ############ 1. WHAT IS CCMONITOR?
 
-CCMONITOR is a  tool for KSP scripters, offering real-time visual feedback by displaying MIDI CC values directly within your DAW's MIDI track. This enables precise tracking of condition triggers and variable changes synchronized with your Kontakt instrument's audio output. Additionally, CCMONITOR features a  bus routing tool, configurable via its UI, which allows effortless monitoring of individual groups within your instrument. 
+CCMONITOR is a  tool for KSP scripters, offering real-time visual feedback of the functioning of a target script by displaying MIDI CC values directly within your DAW's MIDI track. This enables precise tracking of condition triggers and variable changes synchronized with your Kontakt instrument's audio output. Additionally, CCMONITOR features a  bus routing tool, configurable via its UI, which allows effortless monitoring of individual groups within your instrument. 
 
 The primary functions of CCMONITOR are as follows:
 
