@@ -21,8 +21,11 @@ The release also includes:
 2.1. CCMONITOR core scripts (Sublime KSP)
 
 CCmonitor.Functions.ksp
+
 CCmonitor.Interface.ksp
+
 CCmonitor.UI.ksp
+
 
 The  files above must be located in the same folder where the target script is located.
 Please note that these scripts have been written using SublimeKSP v. 1.17.2.
@@ -38,9 +41,13 @@ CCmonitor_routingTemplate.nki (for Kontakt 6) is an empty instrument with a conf
 2.3. CCMONITOR demo scripts and .nki
 
 CCmonitor_DEMOscript.ksp
+
 CCmonitor_DEMOscript.Config.ksp
+
 CCmonitor_DEMOscript.UI.ksp
+
 CCmonitor_DEMO.nki
+
 
 CCmonitor_DEMOscript is a basic script  which  modifies the volume of two Kontakt groups of the instrument CCmonitor_DEMO.nki according to a random function inside a NOTE_HELD while loop.
 
