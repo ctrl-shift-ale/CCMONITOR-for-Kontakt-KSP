@@ -1,0 +1,30 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+import "CCmonitor_Myscript.Config.ksp" // this is the ksp file where you configure CCmonitor to work specifically for this script
+import "CCmonitor.Interface.ksp" // this ksp file contains all the declared variables and macros that are going to be loaded by both the monitored script, and the CCmonitor UI script, which allows CCmonitor to interact with the monitored script
+
+on init 
+	CCMONITOR.init // !!! !!! !!!
+end on 
+
+on note 	
+	CCMONITOR.noteOn // resets variables in CCmonitor and triggers and sets bus routes for external groups
+
+	while NOTE_HELD = ON_ 	
+		///////////////////////////
+		// CCMONITOR
+		// This functions is going to periodically (here we're inside a NOTE_HELD loop) check the value variables that are being monitored and reset any CC channel called by the function CCMONITOR.click() to 0 
+		CCMONITOR.update
+		//\\\\\\\\\\\\\\\\\\\\\\\\\
+		wait(1000)		
+	end while 
+
+end on  
+
+on pgs_changed 	
+	CCMONITOR.pgs // !!! !!! !!!
+
+end on
+
+CCMONITOR.functions // !!! !!! !!!

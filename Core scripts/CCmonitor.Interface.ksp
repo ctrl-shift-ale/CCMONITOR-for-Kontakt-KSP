@@ -1,0 +1,263 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+define CCMONITOR.CONFIG.nITEMS := 8
+define CCMONITOR_ELEMENTSperITEM := 3 //  type , variable/external, midicc / output
+define CCMONITOR_PGS_ARRSIZE := CCMONITOR.CONFIG.nITEMS * CCMONITOR_ELEMENTSperITEM
+
+//define LETTERS_8 := A, B, C, D, E, F, G, H 
+//define LETTERS_4 := A, B , C, D 
+//define LETTERS_2 := A, B 
+define CCMONITOR.TYPE.Marker := 0 
+define CCMONITOR.TYPE.Line := 1 
+define CCMONITOR.TYPE.External := 2 
+//define CCMONITOR.BUS := 0
+//define CCMONITOR.INSERT := 1
+//define CCMONITOR.LEFT := 0
+//define CCMONITOR.RIGHT := 1
+define CCMONITOR.REFRESH.NOTEON_ := 0 
+define CCMONITOR.REFRESH.STATE_ := 1 
+define CCMONITOR.REFRESH_ := 2 
+
+//define enum(#variable#) := CCMONITOR.ENUM.#variable#
+define CCMONITOR.setVarVal(#var_name#) := CCMONITOR.VariablesData[CCMONITOR.ENUM.#var_name#,0] :=  #var_name#
+define CCMONITOR.setVarMin(#var_name# , #min#) := CCMONITOR.VariablesData[CCMONITOR.ENUM.#var_name#,1] :=  #min#
+define CCMONITOR.setVarMax(#var_name# , #max#) := CCMONITOR.VariablesData[CCMONITOR.ENUM.#var_name#,2] :=  #max#
+define CCMONITOR.setVarScaled(#var_name# , #scaled#) := CCMONITOR.VariablesData[CCMONITOR.ENUM.#var_name#,3] :=  #scaled#
+
+macro CCMONITOR.CONFIG.ADD.Group(#str#,#bus#)
+	list_add(!CCMONITOR.CONFIG.Externals,#str#) 
+	CCMONITOR.ExtDefaultBus[CCMONITOR.External_cnt,0] := find_group(#str#)
+	CCMONITOR.ExtDefaultBus[CCMONITOR.External_cnt,1] := NI_BUS_OFFSET + #bus#
+	inc(CCMONITOR.External_cnt)
+end macro
+
+macro CCMONITOR.CONFIG.ADD.Variable(#var#,#str#,#scaled#,#min#,#max#)
+	list_add(!CCMONITOR.CONFIG.Variables,#str#)
+	declare CCMONITOR.ENUM.#var# := CCMONITOR.Variable_cnt
+	inc(CCMONITOR.Variable_cnt)
+	CCMONITOR.VariablesData[CCMONITOR.ENUM.#var#,1] :=  #min#
+	CCMONITOR.VariablesData[CCMONITOR.ENUM.#var#,2] :=  #max#
+	CCMONITOR.VariablesData[CCMONITOR.ENUM.#var#,3] :=  #scaled#
+end macro
+
+macro CCMONITOR.CONFIG.ADD.Bus(#str#,#bus#) // custom name (string) of the output , bus type (send / return), channel (left / right), bus number offset (0 is main stereo out)
+	list_add(!CCMONITOR.CONFIG.Outputs,#str#)
+	CCMONITOR.Outputs[CCMONITOR.Output_cnt] := NI_BUS_OFFSET + #bus#
+	inc(CCMONITOR.Output_cnt)
+end macro
+
+macro CCMONITOR.functions  
+	import "CCmonitor.Functions.ksp"
+end macro 
+
+macro CCMONITOR.init 
+	
+	declare CCMONITOR.CONFIG.ACTIVE := 1
+	declare CCMONITOR.CONFIG.PRINT := 0 // switch print to consolle mode on/off (for debugging purposes)
+
+	declare CCMONITOR.i := 0
+	declare CCMONITOR.j := 0
+
+	declare CCMONITOR.External_cnt := 0
+	declare CCMONITOR.Variable_cnt := 0
+	declare CCMONITOR.Output_cnt := 0
+
+	declare list !CCMONITOR.Types[]
+	list_add(!CCMONITOR.Types,"OFF")
+	list_add(!CCMONITOR.Types,"VARIABLE")
+	list_add(!CCMONITOR.Types,"EXTERNAL")
+	//declare list !CCMONITOR.CONFIG.Events[]
+	//declare list !CCMONITOR.CONFIG.Markers[]
+	//declare list !CCMONITOR.CONFIG.Lines[]
+	declare list !CCMONITOR.CONFIG.Externals[]
+	declare list !CCMONITOR.CONFIG.Variables[]
+	declare list !CCMONITOR.CONFIG.Outputs[]
+
+
+	//list_add(!CCMONITOR.CONFIG.Markers,"placeholder")
+	//list_add(!CCMONITOR.CONFIG.Lines,"placeholder")
+	list_add(!CCMONITOR.CONFIG.Externals,"placeholder")
+	//list_add(!CCMONITOR.CONFIG.Events,"placeholder")
+	list_add(!CCMONITOR.CONFIG.Variables,"placeholder")
+	list_add(!CCMONITOR.CONFIG.Outputs,"placeholder")
+	//list_add(!CCMONITOR.CONFIG.Groups,"placeholder")
+
+	declare CCMONITOR.Outputs[16] // pan, bus
+	for CCMONITOR.i := 0 to 15
+		CCMONITOR.Outputs[CCMONITOR.i] := -1 // -> NULL	 
+	end for
+
+	declare CCMONITOR.ExtDefaultBus[256,2] // group ID , bus
+
+	declare CCMONITOR.clicks[128] // 1 -> just triggered , 0 -> triggered - needs to be deactivated, -1 -> not active
+	for CCMONITOR.i := 0 to 127
+		CCMONITOR.clicks[CCMONITOR.i] := -1 
+	end for
+	declare CCMONITOR.clickBool := 0 // boolean, sets to true if any click has been triggered
+
+	declare CCMONITOR.VariablesData[64,5] // value, min, max, scaled_bool, output
+	for CCMONITOR.i := 0 to 63
+		for CCMONITOR.j := 0 to 4
+			CCMONITOR.VariablesData[CCMONITOR.i,CCMONITOR.j] := -1 // -> NULL	 
+		end for 
+	end for
+	declare CCMONITOR.VariablesData_his[64] 
+
+	CCMONITOR.Configuration
+
+	declare const CCMONITOR.TYPE.OFF_ := 0
+	declare const CCMONITOR.TYPE.VARIABLE_ := 1
+	declare const CCMONITOR.TYPE.EXTERNAL_ := 2
+	
+	declare const CCMONITOR.ENUM.VARDATA.VAL_ := 0 //value, min, max, scaled_bool, output
+	declare const CCMONITOR.ENUM.VARDATA.MIN_ := 1
+	declare const CCMONITOR.ENUM.VARDATA.MAX_ := 2
+	declare const CCMONITOR.ENUM.VARDATA.SCALED_ := 3
+	declare const CCMONITOR.ENUM.VARDATA.OUTPUT_ := 4
+
+	family CCMONITOR  
+	 	//declare const ENGPAR_0dB := 629961
+		//declare const PAN.Left := 0
+		//declare const PAN.Right := 1000000
+		declare const nITEMS := CCMONITOR.CONFIG.nITEMS
+		declare Markers.BusOffset := NI_BUS_OFFSET + 7	
+		declare Active := 1
+		declare vars_bool := 0 
+		declare StateHis := -9999
+		declare group
+		declare id
+		declare out 
+		//declare i
+		//declare j
+		declare ii 
+		declare jj 
+		declare pan
+		declare empty
+		declare val 
+		family Pgs // the data sent by the script CCMONITOR_UI 
+			declare Types[CCMONITOR.nITEMS]
+			declare Groups[CCMONITOR.nITEMS]
+			declare Variables[CCMONITOR.nITEMS]
+			declare Outputs[CCMONITOR.nITEMS]
+			declare Types_his[CCMONITOR.nITEMS]
+			declare ExtGroups_his[CCMONITOR.nITEMS]
+			declare i 
+			declare j 
+		end family
+		/*
+		family Current // The triggers under the current "event" 
+			declare Event 
+			declare Groups[CCMONITOR.nITEMS]
+			declare Lines[CCMONITOR.nITEMS]
+			declare Variables[CCMONITOR.nITEMS]
+			declare Outputs[8]
+		end family
+		*/
+
+	end family
+	
+
+	for CCMONITOR.i := 0 to CCMONITOR.nITEMS - 1
+		CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.i] := -1 // -> NULL	
+	end for
+end macro
+
+macro CCMONITOR.pgs 
+	//  type, group, variable/event, output now -> type , variable/external, midicc / output
+	for CCMONITOR.Pgs.i := 0 to CCMONITOR.nITEMS - 1	
+		CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i] := 0	
+	end for
+
+	for CCMONITOR.Pgs.i := 0 to CCMONITOR.nITEMS - 1	
+		CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i] := -1	
+	end for
+
+	for CCMONITOR.Pgs.i := 0 to CCMONITOR.nITEMS - 1
+		CCMONITOR.Pgs.Outputs[CCMONITOR.Pgs.i] := -1	
+	end for
+	
+	for CCMONITOR.Pgs.i := 0 to 63
+		CCMONITOR.VariablesData[CCMONITOR.Pgs.i,CCMONITOR.ENUM.VARDATA.OUTPUT_] := -1
+	end for
+	
+	CCMONITOR.vars_bool := 0 // FALSE 
+	if pgs_key_exists(PGS_CCMONITOR_ROUTING)
+		for CCMONITOR.Pgs.i := 0 to CCMONITOR.nITEMS - 1
+			
+			CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i] := pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3) //  type , variable/external, midicc / output
+			//message("CCMONITOR.pgs . item n. " & CCMONITOR.Pgs.i & " , type: " & CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i])
+			//message(" Group: " &  pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3 + 1)) // group)
+			if CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i] # CCMONITOR.TYPE.OFF_ // item is on
+				select CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i]
+					case CCMONITOR.TYPE.VARIABLE_
+						if CCMONITOR.Variable_cnt > 0
+							CCMONITOR.val := pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3 + 1) // variable
+							if CCMONITOR.val = -1
+								CCMONITOR.val := 0
+							end if 
+
+							CCMONITOR.VariablesData[CCMONITOR.val,CCMONITOR.ENUM.VARDATA.VAL_] := 0 // reset value
+							CCMONITOR.VariablesData_his[CCMONITOR.val] := CCMONITOR.VariablesData[CCMONITOR.val,CCMONITOR.ENUM.VARDATA.MIN_] - 1 // less than the minimum so it can't be = to the variable value
+
+							CCMONITOR.VariablesData[CCMONITOR.val,CCMONITOR.ENUM.VARDATA.OUTPUT_] := pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3 + 2) //  type , variable/external, midicc / output
+							
+							CCMONITOR.vars_bool := 1 // TRUE
+						end if 
+					
+					case CCMONITOR.TYPE.EXTERNAL_ //type , variable/external, midicc / output
+						if CCMONITOR.External_cnt > 0
+							CCMONITOR.val := pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3 + 1) // external group
+							message("EXTERNAL, idx " & CCMONITOR.val)
+							if CCMONITOR.val = -1
+								CCMONITOR.val := 0
+							end if 
+							CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i] := find_group(!CCMONITOR.CONFIG.Externals[CCMONITOR.val + 1]) // !CCMONITOR.CONFIG.Groups[0] := "placeholder"
+							message("EXTERNAL, group id " & CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i])
+							CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i] := CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i]
+						end if  
+						if CCMONITOR.Output_cnt > 0
+							CCMONITOR.val := pgs_get_key_val(PGS_CCMONITOR_ROUTING,CCMONITOR.Pgs.i*3 + 2) // audio bus 
+							if CCMONITOR.val = -1
+								CCMONITOR.val := 0
+							end if
+							CCMONITOR.Pgs.Outputs[CCMONITOR.Pgs.i] := CCMONITOR.val
+						end if
+				end select 
+				
+				if CCMONITOR.CONFIG.PRINT = 1
+					message("_-_-_-_-_-_-_-_-_-_- pgs_changed (CCMONITOR) _-_-_-_-_-_-_-_-_-_-")
+					message(" -	Item: " & CCMONITOR.Pgs.i)
+					message(" - Type: " & !CCMONITOR.Types[CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i]])
+					if CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i] = CCMONITOR.TYPE.EXTERNAL_
+						message(" - Group: " & group_name(CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i]) & " (group ID " & CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i] & ")")
+						message(" - Output: " & !CCMONITOR.CONFIG.Outputs[CCMONITOR.Pgs.Outputs[CCMONITOR.Pgs.i] + 1] & " (idx " & CCMONITOR.Pgs.Outputs[CCMONITOR.Pgs.i] & ")")
+					else if CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i] = CCMONITOR.TYPE.VARIABLE_
+						message(" - Variable: " & !CCMONITOR.CONFIG.Variables[CCMONITOR.val + 1] & " (idx " & CCMONITOR.val & ")")
+						message(" - Output CC: " & CCMONITOR.VariablesData[CCMONITOR.val,CCMONITOR.ENUM.VARDATA.OUTPUT_])
+					end if 
+					//message("outout counter: " & CCMONITOR.Output_cnt)
+					
+					message("_-_-_-_-_-_-_-_-_-_-")
+				end if
+			end if
+			//if CCMONITOR.Pgs.Types_his[CCMONITOR.Pgs.i] = CCMONITOR.TYPE.EXTERNAL_ 
+				if CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i] # -1 and CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i] # CCMONITOR.Pgs.Groups[CCMONITOR.Pgs.i] //reset bus for external group
+					for CCMONITOR.Pgs.j := 0 to CCMONITOR.External_cnt - 1
+						if CCMONITOR.ExtDefaultBus[CCMONITOR.Pgs.j,0] = CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i] // found ext group ID
+							if CCMONITOR.CONFIG.PRINT = 1
+								message(" External group " & group_name(CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i]) & " routed back to default bus " & CCMONITOR.ExtDefaultBus[CCMONITOR.Pgs.j,1])
+							end if
+							set_engine_par(ENGINE_PAR_OUTPUT_CHANNEL, CCMONITOR.ExtDefaultBus[CCMONITOR.Pgs.j,1], CCMONITOR.ExtDefaultBus[CCMONITOR.Pgs.j,0], -1, -1)
+							CCMONITOR.Pgs.j := CCMONITOR.External_cnt //break
+						end if
+					end for
+					CCMONITOR.Pgs.ExtGroups_his[CCMONITOR.Pgs.i] := -1
+				end if
+
+			//end if
+
+			CCMONITOR.Pgs.Types_his[CCMONITOR.Pgs.i] := CCMONITOR.Pgs.Types[CCMONITOR.Pgs.i]
+		end for
+	end if 
+end macro

@@ -1,0 +1,41 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+macro CCMONITOR.Configuration
+
+	// CONFIGURATION FOR Ccmonitor_DEMOscript.ksp
+
+		////////////////////////////////////
+		// Add the Variables in your code whose value you want to be displayed via MIDI CC
+		///////////////////////////////////
+		//// CCMONITOR.CONFIG.ADD.Variable arguments: [0] name of the variable as declared in the script to be monitored , [1] name (string) of the variable as displayed in the CCmonitor UI, [2] scaled variable (0 = false, 1 = true), [3] min variable value , [4] max variable value
+		//// the min and max value arguments are for initialisation purposes only, you can dynamically change these values in your script with the functions CCMONITOR.SetVarMin() and CCMONITOR.SetVarMax()
+		CCMONITOR.CONFIG.ADD.Variable(stepVol, "stepVol" , 1, 0, 0) 
+		CCMONITOR.CONFIG.ADD.Variable(volSaw , "volSaw" , 1 , 0, 0)
+		CCMONITOR.CONFIG.ADD.Variable(volSquare , "volSquare" , 1, 0, 0) 
+		CCMONITOR.CONFIG.ADD.Variable(state, "state" , 0, 0, 0)
+		CCMONITOR.CONFIG.ADD.Variable(volSaw_envCurrent, "Saw env vol" , 1, 0, 0)
+		CCMONITOR.CONFIG.ADD.Variable(volSquare_envCurrent, "Square env vol" , 1, 0, 0)
+
+		////////////////////////////////////
+		// Add External groups (groups that are part of your instrument and that you might want to insert via an aux channel)
+		////////////////////////////////////
+		//CCMONITOR.CONFIG.ADD.Group arguments: [0] name (string) of the group, offset of default bus output
+		CCMONITOR.CONFIG.ADD.Group("Saw wave",0)
+		CCMONITOR.CONFIG.ADD.Group("Square wave",0)
+		
+		////////////////////////////////////
+		// Add the Outputs that you want to be availale for routing the External Groups
+		////////////////////////////////////	
+		// CCMONITOR.CONFIG.ADD.Output arguments: [0] custom UI menu name (string) of the output, [1] pan (0 = left, 1 = right), [2] bus number offset)
+		CCMONITOR.CONFIG.ADD.Bus("AUX 1 L" , 1) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 1 R" , 2) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 2 L" , 3) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 2 R" , 4) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 3 L" , 5) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 3 R" , 6) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 4 L" , 7) 
+		CCMONITOR.CONFIG.ADD.Bus("AUX 4 R" , 8) 
+end macro
+
+			

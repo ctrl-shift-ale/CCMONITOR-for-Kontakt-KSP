@@ -1,0 +1,126 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+    // CODE-SPECIFIC COMMANDS FOR TARGET SCRIPT
+
+        ////////////////////////////////////
+        // CCMONITOR.noteOn() resets the parameters of the monitored variables at the beginning of a "on note" callback
+        ////////////////////////////////////   
+        function CCMONITOR.noteOn()
+            if CCMONITOR.CONFIG.PRINT = 1
+                message("")
+                message("_-_-_-_-_-_-_-_-_-_- noteON (CCMONITOR) _-_-_-_-_-_-_-_-_-_-")
+            end if 
+            CCMONITOR.StateHis := -1
+            for CCMONITOR.Pgs.i := 0 to CCMONITOR.nITEMS - 1
+
+                if CCMONITOR.Pgs.Variables[CCMONITOR.Pgs.i] # -1 
+                    CCMONITOR.VariablesData[CCMONITOR.Pgs.Variables[CCMONITOR.Pgs.i],CCMONITOR.ENUM.VARDATA.VAL_] := 0 // value
+                    CCMONITOR.VariablesData_his[CCMONITOR.Pgs.Variables[CCMONITOR.Pgs.i]] := CCMONITOR.VariablesData[CCMONITOR.Pgs.Variables[CCMONITOR.Pgs.i],1] - 1
+                    CCMONITOR.vars_bool := 1 // TRUE
+                end if
+            end for 
+            _CCMONITOR.refresh(CCMONITOR.REFRESH.NOTEON_)
+        end function
+
+        ////////////////////////////////////
+        // Place CCMONITOR.update() anytime you want CCMONITOR to refresh the script's "state", or of other monitored variables. 
+        // Depending on the time resolution of the monitoring requested, you may want to call this function at the bottom of a while NOTE_HELD loop, or in a "on listener" callback
+        ////////////////////////////////////
+        function CCMONITOR.update()
+            _CCMONITOR.refresh(CCMONITOR.REFRESH_)
+        end function
+
+        function CCMONITOR.click(cc)
+           CCMONITOR.clickBool := 1 
+           CCMONITOR.clicks[cc] := 1 // on
+           set_controller(cc,127)
+        end function
+
+    // END OF CODE-SPECIFIC COMMANDS FOR TARGET SCRIPT
+
+    function _CCMONITOR.refresh(type) 
+        declare idx
+        if type = CCMONITOR.REFRESH.NOTEON_ // play externals
+            for CCMONITOR.i := 0 to CCMONITOR.nITEMS - 1          
+                if CCMONITOR.Pgs.Groups[CCMONITOR.i] # -1 and CCMONITOR.Pgs.Outputs[CCMONITOR.i] # -1
+                    if CCMONITOR.CONFIG.PRINT = 1
+                        message("_-_-_-_-_- Function _CCMONITOR.refresh -_-_-_-_-_")
+                        message("    Item n." & CCMONITOR.i & ", found external: " & group_name(CCMONITOR.Pgs.Groups[CCMONITOR.i]))    
+                    end if
+                    _CCMONITOR.External.Set(CCMONITOR.i)
+                end if          
+            end for 
+        end if 
+        for CCMONITOR.i := 0 to CCMONITOR.VariablesData.SIZE_D1 - 1
+            if CCMONITOR.VariablesData[CCMONITOR.i,CCMONITOR.ENUM.VARDATA.OUTPUT_] # -1 ...
+            and CCMONITOR.VariablesData[CCMONITOR.i,CCMONITOR.ENUM.VARDATA.VAL_] # CCMONITOR.VariablesData_his[CCMONITOR.i]  // CCMONITOR.VariablesData[varIdx][value, min, max , group, noteID, output]  
+                if CCMONITOR.CONFIG.PRINT = 1
+                    message("_-_-_-_-_- Function _CCMONITOR.refresh -_-_-_-_-_")
+                    message("variable " & !CCMONITOR.CONFIG.Variables[CCMONITOR.i + 1] &  " = " & CCMONITOR.VariablesData[CCMONITOR.i,CCMONITOR.ENUM.VARDATA.VAL_]  & " ; was " & CCMONITOR.VariablesData_his[CCMONITOR.i])
+                end if
+                _CCMONITOR.MidiOut(CCMONITOR.i)
+                CCMONITOR.VariablesData_his[CCMONITOR.i] := CCMONITOR.VariablesData[CCMONITOR.i,CCMONITOR.ENUM.VARDATA.VAL_]
+            end if 
+        end for    
+        if CCMONITOR.clickBool = 1
+            while search(CCMONITOR.clicks,0) # -1 // search for triggers to deactivate
+                idx := search(CCMONITOR.clicks,0)
+                set_controller(idx,0)
+                CCMONITOR.clicks[idx] := -1
+            end while
+            while search(CCMONITOR.clicks,1) # -1 // search for triggers that have just been activated (1) and set their status to (0) - to be deactivated at the next iteration of _CCMONITOR.refresh()
+                idx := search(CCMONITOR.clicks,1)
+                CCMONITOR.clicks[idx] := 0
+            end while 
+            if search(CCMONITOR.clicks,0) = -1 // no clicks ongoing
+                CCMONITOR.clickBool := 0 // stop checking until the function CCMONITOR.click() is called again
+            end if
+        end if 
+           
+    end function
+
+    function _CCMONITOR.External.Set(idx)
+        CCMONITOR.group := CCMONITOR.Pgs.Groups[idx]
+        CCMONITOR.out := CCMONITOR.Pgs.Outputs[idx] 
+        if CCMONITOR.CONFIG.PRINT = 1
+            message("")
+            message("_-_-_-_-_- Function _CCMONITOR.External.Set -_-_-_-_-_")
+            message("external group is: " & group_name(CCMONITOR.group) )
+            message("output is: " & !CCMONITOR.CONFIG.Outputs[CCMONITOR.out + 1] & " (" & CCMONITOR.Outputs[CCMONITOR.out] & ")")
+        end if
+        
+        set_engine_par(ENGINE_PAR_OUTPUT_CHANNEL, CCMONITOR.Outputs[CCMONITOR.out], CCMONITOR.group, -1, -1)
+    end function
+
+    function _CCMONITOR.MidiOut(idx)
+        declare outVal 
+        if idx # -999 and idx # -1
+            if CCMONITOR.CONFIG.PRINT = 1
+                message(" ")
+                message("_-_-_-_-_- Function _CCMONITOR.MidiOut -_-_-_-_-_")
+                message("idx: " & idx)
+                message("CCMONITOR.VariablesData : value = " & CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.VAL_] ... 
+                & " , min = " & CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.MIN_] & " , max = " & CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.MAX_] ... 
+                & " , out cc = " & CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.OUTPUT_]) // CCMONITOR.VariablesData[varIdx][value, min, max, group, noteID, output]
+            end if
+            if CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.SCALED_] = 0 
+                outVal := CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.VAL_]
+            else 
+                outVal := _CCMONITOR.scale(CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.VAL_], ...
+                    CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.MIN_],CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.MAX_],0,127)
+            end if
+           
+            set_controller(CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.OUTPUT_],outVal)
+            if CCMONITOR.CONFIG.PRINT = 1
+                message("Set midi cc " & CCMONITOR.VariablesData[idx,CCMONITOR.ENUM.VARDATA.OUTPUT_] & " to " & outVal)
+            end if
+        end if 
+    end function
+
+    function _CCMONITOR.scale(v, a, b, c, d) -> return
+        return := (((((v)-(a)) * ((d)-(c)))/((b)-(a))) + (c))
+    end function
+
+
+  

@@ -1,0 +1,309 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+
+// IMPORT THE CONFIGURATION KSP FILE CONTAINING THE MACRO "CCMONITOR.Configuration" TO WORK WITH THE SCRIPT TO BE MONITORED
+// (please refer to paragraph 3.1 and 3.2 of CCMONITOR's WIKI)
+
+// import "mytargetConfigurationForCCMONITOR.ksp"
+
+// THIS IS ALL YOU NEEDED TO DO INSIDE THIS SCRIPT, THANK YOU!
+
+
+import "CCmonitor.Interface.ksp"
+
+on init 
+	set_script_title("CCmonitor.UI")
+	message(" ")
+	CCMONITOR.init
+
+	declare const CCMONITOR.UI_HEIGHT  := 300
+	declare const CCMONITOR.UI_WIDTH := 633
+	declare const CCMONITOR.UI_OFFSET_X := 80
+	declare const CCMONITOR.UI_KNOB_OFFSET_X := 3
+	set_ui_height_px(CCMONITOR.UI_HEIGHT)
+	set_ui_width_px(CCMONITOR.UI_WIDTH)
+	
+	declare CCMONITOR.UI.AudioRouting.width := 100 
+	declare CCMONITOR.UI.AudioRouting.hspacing := 20
+	declare CCMONITOR.UI.AudioRouting.vspacing := 25
+	declare CCMONITOR.UI.AudioRouting.Menu.height := 20
+
+	declare CCMONITOR.a  
+	declare CCMONITOR.b
+	declare CCMONITOR.c 
+	declare CCMONITOR.d
+	declare CCMONITOR.idxMin
+	declare CCMONITOR.idxMax
+	declare CCMONITOR.UI.i
+
+	// TYPE (VARIABLE OR EXTERNAL)
+	declare pers ui_menu CCMONITOR.UI.MENU.Type[CCMONITOR.CONFIG.nITEMS] 
+	iterate_macro(CCMONITOR.UI.MENU.Type_BUILD) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+
+	// VARIABLES
+	declare pers ui_menu CCMONITOR.UI.MENU.Variables[CCMONITOR.CONFIG.nITEMS] 
+	iterate_macro(CCMONITOR.UI.MENU.Variables_BUILD) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+
+	//EXTERNALS
+	declare pers ui_menu CCMONITOR.UI.MENU.Externals[CCMONITOR.CONFIG.nITEMS] 
+	iterate_macro(CCMONITOR.UI.MENU.Externals_BUILD) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+
+	// AUDIO BUSES
+	declare pers ui_menu CCMONITOR.UI.MENU.Outputs[CCMONITOR.CONFIG.nITEMS] 
+	iterate_macro(CCMONITOR.UI.MENU.Outputs_BUILD) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+
+	// MIDI CC OUTPUTS (KNOB)
+	declare pers ui_knob CCMONITOR.UI.MENU.CCoutputs[CCMONITOR.CONFIG.nITEMS] (0,120,1) 
+	iterate_macro(CCMONITOR.UI.MENU.CCoutputs_BUILD) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+
+	pgs_create_key(PGS_CCMONITOR_ROUTING, CCMONITOR_PGS_ARRSIZE) //nItems * (type , variable/external, midicc / output)
+	 
+end on
+
+
+on persistence_changed 
+	iterate_macro(CCMONITOR.PersistenceChange) := 0 to CCMONITOR.CONFIG.nITEMS - 1
+end on
+
+
+macro CCMONITOR.UI.MENU.Type_BUILD(#n#)
+	add_menu_item(CCMONITOR.UI.MENU.Type#n#, "OFF", CCMONITOR.TYPE.OFF_)
+	if CCMONITOR.Variable_cnt > 0
+		add_menu_item(CCMONITOR.UI.MENU.Type#n#, "VARIABLE", CCMONITOR.TYPE.VARIABLE_)
+	end if
+	if CCMONITOR.External_cnt > 0
+		add_menu_item(CCMONITOR.UI.MENU.Type#n#, "EXTERNAL", CCMONITOR.TYPE.EXTERNAL_)
+	end if
+
+	CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing) 
+	CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a 
+    CCMONITOR.c := #n# mod CCMONITOR.a 
+    CCMONITOR.d := #n# / CCMONITOR.a 
+    set_bounds(CCMONITOR.UI.MENU.Type[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM), CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+	set_control_par(CCMONITOR.UI.MENU.Type[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+	make_persistent(CCMONITOR.UI.MENU.Type#n#)
+	read_persistent_var(CCMONITOR.UI.MENU.Type#n#)
+end macro
+
+macro CCMONITOR.UI.MENU.Markers_BUILD(#n#) 
+	if CCMONITOR.Marker_cnt > 0
+		for CCMONITOR.i := 0 to CCMONITOR.Marker_cnt - 1
+			add_menu_item(CCMONITOR.UI.MENU.Markers#n#, !CCMONITOR.CONFIG.Markers[CCMONITOR.i+1], CCMONITOR.i)
+		end for
+		
+    	CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing) 
+    	CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a 
+    	CCMONITOR.c := #n# mod CCMONITOR.a 
+    	CCMONITOR.d := #n# / CCMONITOR.a 
+    	set_bounds(CCMONITOR.UI.MENU.Markers[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+		set_control_par(CCMONITOR.UI.MENU.Markers[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+		make_persistent(CCMONITOR.UI.MENU.Markers#n#)
+		read_persistent_var(CCMONITOR.UI.MENU.Markers#n#)
+	end if 
+end macro
+macro CCMONITOR.UI.MENU.Lines_BUILD(#n#) 
+	if CCMONITOR.Line_cnt > 0
+		for CCMONITOR.i := 0 to CCMONITOR.Line_cnt - 1
+			add_menu_item(CCMONITOR.UI.MENU.Lines#n#, !CCMONITOR.CONFIG.Lines[CCMONITOR.i+1], CCMONITOR.i)
+		end for 
+	    CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing) 
+	    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a 
+	    CCMONITOR.c := #n# mod CCMONITOR.a 
+	    CCMONITOR.d := #n# / CCMONITOR.a 
+	    set_bounds(CCMONITOR.UI.MENU.Lines[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+		set_control_par(CCMONITOR.UI.MENU.Lines[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+		make_persistent(CCMONITOR.UI.MENU.Lines#n#)
+		read_persistent_var(CCMONITOR.UI.MENU.Lines#n#)
+	end if 
+end macro
+
+macro CCMONITOR.UI.MENU.Externals_BUILD(#n#) 
+	if CCMONITOR.External_cnt > 0
+		for CCMONITOR.i := 0 to CCMONITOR.External_cnt - 1
+			add_menu_item(CCMONITOR.UI.MENU.Externals#n#, !CCMONITOR.CONFIG.Externals[CCMONITOR.i+1],CCMONITOR.i)
+		end for
+	    CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing) 
+	    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a 
+	    CCMONITOR.c := #n# mod CCMONITOR.a 
+	    CCMONITOR.d := #n# / CCMONITOR.a 
+	    set_bounds(CCMONITOR.UI.MENU.Externals[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+		set_control_par(CCMONITOR.UI.MENU.Externals[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+		make_persistent(CCMONITOR.UI.MENU.Externals#n#)
+		read_persistent_var(CCMONITOR.UI.MENU.Externals#n#)
+	end if 
+end macro
+
+macro CCMONITOR.UI.MENU.Events_BUILD(#n#)
+	if CCMONITOR.Event_cnt > 0
+		for CCMONITOR.i:= 0 to CCMONITOR.Event_cnt - 1
+			add_menu_item(CCMONITOR.UI.MENU.Events#n#, CCMONITOR.CONFIG.Events[CCMONITOR.i+1], CCMONITOR.i)
+		end for
+		CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)
+	    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a
+	    CCMONITOR.c := #n# mod CCMONITOR.a 
+	    CCMONITOR.d := #n# / CCMONITOR.a 
+	    set_bounds(CCMONITOR.UI.MENU.Events[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing*2, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+		set_control_par(CCMONITOR.UI.MENU.Events[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+		make_persistent(CCMONITOR.UI.MENU.Events#n#)
+		read_persistent_var(CCMONITOR.UI.MENU.Events#n#)
+	end if 
+end macro
+
+macro CCMONITOR.UI.MENU.Variables_BUILD(#n#)
+	if CCMONITOR.Variable_cnt > 0 
+		for CCMONITOR.i:= 0 to CCMONITOR.Variable_cnt - 1
+	    	add_menu_item(CCMONITOR.UI.MENU.Variables#n#, CCMONITOR.CONFIG.Variables[CCMONITOR.i+1], CCMONITOR.i)
+	    end for
+	end if 
+    CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)
+    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a
+    CCMONITOR.c := #n# mod CCMONITOR.a 
+    CCMONITOR.d := #n# / CCMONITOR.a 
+    set_bounds(CCMONITOR.UI.MENU.Variables[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+	set_control_par(CCMONITOR.UI.MENU.Variables[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+	make_persistent(CCMONITOR.UI.MENU.Variables#n#)
+	read_persistent_var(CCMONITOR.UI.MENU.Variables#n#)
+end macro
+
+macro CCMONITOR.UI.MENU.Outputs_BUILD(#n#)
+	if CCMONITOR.Output_cnt > 0
+		for CCMONITOR.i:= 0 to CCMONITOR.Output_cnt - 1
+	    	add_menu_item(CCMONITOR.UI.MENU.Outputs#n#, CCMONITOR.CONFIG.Outputs[CCMONITOR.i+1], CCMONITOR.i)
+	    end for
+	end if 
+    CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)
+    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a
+    CCMONITOR.c := #n# mod CCMONITOR.a
+    CCMONITOR.d := #n# / CCMONITOR.a
+    set_bounds(CCMONITOR.UI.MENU.Outputs[#n#], CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing*2, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+	set_control_par(CCMONITOR.UI.MENU.Outputs[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+	make_persistent(CCMONITOR.UI.MENU.Outputs#n#)
+	read_persistent_var(CCMONITOR.UI.MENU.Outputs#n#)
+end macro
+
+macro CCMONITOR.UI.MENU.CCoutputs_BUILD(#n#)
+	
+    CCMONITOR.a := (CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) / (CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)
+    CCMONITOR.b := ((CCMONITOR.UI_WIDTH - CCMONITOR.UI_OFFSET_X - 5) - CCMONITOR.a*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing)) / CCMONITOR.a
+    CCMONITOR.c := #n# mod CCMONITOR.a
+    CCMONITOR.d := #n# / CCMONITOR.a
+    set_bounds(CCMONITOR.UI.MENU.CCoutputs[#n#], CCMONITOR.UI_KNOB_OFFSET_X + CCMONITOR.UI_OFFSET_X + CCMONITOR.c*(CCMONITOR.UI.AudioRouting.width+CCMONITOR.UI.AudioRouting.hspacing+CCMONITOR.b), 5 + CCMONITOR.d*((15+CCMONITOR.UI.AudioRouting.Menu.height)*CCMONITOR_ELEMENTSperITEM) + CCMONITOR.UI.AudioRouting.vspacing*2, CCMONITOR.UI.AudioRouting.width, CCMONITOR.UI.AudioRouting.Menu.height)
+	//set_control_par(CCMONITOR.UI.MENU.CCoutputs[#n#],$CONTROL_PAR_TEXT_ALIGNMENT,1)
+	//set_knob_label (CCMONITOR.UI.MENU.CCoutputs[#n#],"CC")
+	set_knob_properties(CCMONITOR.UI.MENU.CCoutputs[#n#], "MIDI CC" , 1)
+	make_persistent(CCMONITOR.UI.MENU.CCoutputs#n#)
+	read_persistent_var(CCMONITOR.UI.MENU.CCoutputs#n#)
+end macro
+
+macro CCMONITOR.PersistenceChange(#n#)	 
+	message(" =============CCMONITOR.PersistenceChange================= ")
+	message("item: " & #n#)
+
+	pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM, CCMONITOR.UI.MENU.Type#n#)  //PGS_CCMONITOR_ROUTING, idx offsets: 0 -> type , 1 -> external group/variable , 2 -> output
+	
+	set_control_par(CCMONITOR.UI.MENU.Externals[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+	set_control_par(CCMONITOR.UI.MENU.Variables[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)		
+	set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+	set_control_par(CCMONITOR.UI.MENU.ccOutputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+	
+
+	if CCMONITOR.UI.MENU.Type#n# # CCMONITOR.TYPE.OFF_ // is ON
+
+		if CCMONITOR.UI.MENU.Type#n# = CCMONITOR.TYPE.VARIABLE_
+			set_control_par(CCMONITOR.UI.MENU.Variables[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+			set_control_par(CCMONITOR.UI.MENU.ccOutputs[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+
+		else if CCMONITOR.UI.MENU.Type#n# = CCMONITOR.TYPE.EXTERNAL_
+			set_control_par(CCMONITOR.UI.MENU.Externals[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 1, CCMONITOR.UI.MENU.Externals#n#) //  type , variable/external, midicc / output
+
+			set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 2, CCMONITOR.UI.MENU.Outputs#n#)
+		end if
+		
+	end if 
+end macro 
+//iterate_macro(CCMONITOR.PostInitPGS) := 0 to CCMONITOR.CONFIG.nITEMS - 1 
+
+macro CCMONITOR.SetTypes(#n#)
+	on ui_control(CCMONITOR.UI.MENU.Type#n#)
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 1, -1) // reset variables
+		if CCMONITOR.CONFIG.PRINT = 1 
+			message("CCMONITOR.SetTypes. Item n. " & #n# & " , type: " & !CCMONITOR.Types[CCMONITOR.UI.MENU.Type#n#])
+		end if
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM, CCMONITOR.UI.MENU.Type#n#)
+		if CCMONITOR.UI.MENU.Type#n# = CCMONITOR.TYPE.OFF_
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM, CCMONITOR.TYPE.OFF_) //  type , variable/external, midicc / audio bus
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 1, -1) 
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 2, -1)
+
+			set_control_par(CCMONITOR.UI.MENU.Externals[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)			
+			set_control_par(CCMONITOR.UI.MENU.Variables[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+			set_control_par(CCMONITOR.UI.MENU.CCoutputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+			set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+		else 
+			pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM, CCMONITOR.UI.MENU.Type#n#)
+			if CCMONITOR.UI.MENU.Type#n# = CCMONITOR.TYPE.VARIABLE_ 	
+				set_control_par(CCMONITOR.UI.MENU.Externals[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)			
+				set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+
+				set_control_par(CCMONITOR.UI.MENU.Variables[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+				set_control_par(CCMONITOR.UI.MENU.CCoutputs[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+	
+			end if
+
+			if CCMONITOR.UI.MENU.Type#n# = CCMONITOR.TYPE.EXTERNAL_ 
+				set_control_par(CCMONITOR.UI.MENU.Externals[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)			
+				set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+
+				set_control_par(CCMONITOR.UI.MENU.Variables[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+				set_control_par(CCMONITOR.UI.MENU.CCoutputs[#n#], CONTROL_PAR_HIDE, HIDE_WHOLE_CONTROL)
+			end if
+			//set_control_par(CCMONITOR.UI.MENU.Outputs[#n#], CONTROL_PAR_HIDE, HIDE_PART_NOTHING)
+		end if 
+	end on
+end macro
+iterate_macro(CCMONITOR.SetTypes) := 0 to CCMONITOR.CONFIG.nITEMS - 1 
+
+macro CCMONITOR.SetExternals(#n#)
+	on ui_control(CCMONITOR.UI.MENU.Externals#n#)
+		if CCMONITOR.CONFIG.PRINT = 1 
+			message("Item n. " & #n# & " , external: " & !CCMONITOR.CONFIG.Externals[CCMONITOR.UI.MENU.Externals#n# + 1]) // [0] := placeholder
+			//message("external idx " &)
+		end if
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 1, CCMONITOR.UI.MENU.Externals#n#) //  type , variable/external, midicc / output
+	end on
+end macro
+iterate_macro(CCMONITOR.SetExternals) := 0 to CCMONITOR.CONFIG.nITEMS - 1 
+
+macro CCMONITOR.SetVariables(#n#) // for lines
+	on ui_control(CCMONITOR.UI.MENU.Variables#n#)
+		if CCMONITOR.CONFIG.PRINT = 1 
+			message("Item n. " & #n# & " , variable: " & !CCMONITOR.CONFIG.Variables[CCMONITOR.UI.MENU.Variables#n# + 1]) // [0] := placeholder
+		end if
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 1, CCMONITOR.UI.MENU.Variables#n#)
+	end on
+end macro
+iterate_macro(CCMONITOR.SetVariables) := 0 to CCMONITOR.CONFIG.nITEMS - 1 
+
+macro CCMONITOR.SetOutputs(#n#)
+	on ui_control(CCMONITOR.UI.MENU.Outputs#n#)
+		if CCMONITOR.CONFIG.PRINT = 1 
+			message("Item n. " & #n# & " , output: " & !CCMONITOR.CONFIG.Outputs[CCMONITOR.UI.MENU.Outputs#n# + 1]) // [0] := placeholder
+		end if
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 2, CCMONITOR.UI.MENU.Outputs#n#)
+	end on
+end macro
+iterate_macro(CCMONITOR.SetOutputs) := 0 to CCMONITOR.CONFIG.nITEMS - 1 
+
+macro CCMONITOR.SetCCoutputs(#n#)
+	on ui_control(CCMONITOR.UI.MENU.CCoutputs#n#)
+		if CCMONITOR.CONFIG.PRINT = 1 
+			message("From UI. Item n. " & #n# & " , CC output: " & CCMONITOR.UI.MENU.CCoutputs#n#) // [0] := placeholder
+		end if
+		
+		pgs_set_key_val(PGS_CCMONITOR_ROUTING, #n# * CCMONITOR_ELEMENTSperITEM + 2, CCMONITOR.UI.MENU.CCoutputs#n#)  //  type, group, variable/event, output
+	end on
+end macro
+iterate_macro(CCMONITOR.SetCCoutputs) := 0 to CCMONITOR.CONFIG.nITEMS - 1 

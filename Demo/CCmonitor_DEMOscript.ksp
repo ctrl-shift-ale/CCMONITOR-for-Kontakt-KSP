@@ -1,0 +1,239 @@
+//~#~#~# CCMONITOR by Alessandro Quaranta for SublimeKSP v. 1.17.2 ~#~#~#
+// ~#~#~# alessandro_quaranta@hotmail.com ~#~#~#
+
+import "CCmonitor_DEMOscript.Config.ksp" // this is the ksp file where you configure CCmonitor to work specifically for this script
+import "CCmonitor.Interface.ksp" // this ksp file contains all the declared variables and macros that are going to be loaded by both the monitored script, and the CCmonitor UI script, which allows CCmonitor to interact with the monitored script
+
+
+///////////////////////////////////////////////////////////////
+// SCRIPT USER SETUP
+///////////////////////////////////////////////////////////////
+define VolRange := 20 // -10 , +10 dB range 
+define stepVolRange := 6 // -3 , +3 db range
+define freq := 1 // random vol change refresh frequency (times per second) 
+define envTick := 5000 // usec
+define groupSaw := "Saw wave"
+define groupSquare := "Square wave"
+define sawLouderClickCC := 58
+define squareLouderClickCC := 59
+///////////////////////////////////////////////////////////////
+
+
+on init 
+	set_script_title("CCmonitor_DEMOscript")
+	CCMONITOR.init // !!! !!! !!!
+
+	CCMONITOR.CONFIG.ACTIVE := 1 // turn CCMONITOR on/off. Default is ON
+	CCMONITOR.CONFIG.PRINT := 1 //  turn CCMONITOR related messages print to consolle on/off.  Default is OFF 
+
+	///////////////////////////////////////////////////////////////
+	// ENUM VARIABLES
+	declare const STATE.OFF := -1
+	declare const STATE.NEW := 0 
+	declare const STATE.SAW_LOUDER := 10 
+	declare const STATE.SQUARE_LOUDER := 20 
+	declare const STATE.SAME_VOL := 30
+
+	declare const NULL_ := -1
+	declare const ON_ := 1
+	declare const uSEC_ := 1000000
+	///////////////////////////////////////////////////////////////
+
+	declare stepVol := 0 
+	CCMONITOR.SetVarMin(stepVol, -1 * VolRange / 2) // in dB !!! !!! !!!
+	CCMONITOR.SetVarMax(stepVol, VolRange / 2) // !!! !!! !!!
+	
+	declare volSaw := 0
+	CCMONITOR.SetVarMin(volSaw, -1 * VolRange / 2) // in dB !!! !!! !!!
+	CCMONITOR.SetVarMax(volSaw, VolRange / 2) // !!! !!! !!!
+
+	declare volSquare := 0
+	CCMONITOR.SetVarMin(volSquare, -1 * VolRange / 2) // !!! !!! !!!
+	CCMONITOR.SetVarMax(volSquare, VolRange / 2) // !!! !!! !!!
+
+	declare state 
+	CCMONITOR.SetVarMin(state,STATE.NEW) //!!! !!! !!!
+	CCMONITOR.SetVarMax(state,STATE.SAME_VOL) // !!! !!! !!!
+
+
+
+	///////////////////////////////////////////////////////////////
+
+	declare cycleDur // this determines the duration of the wait() statement at the end of the NOTE_HELD while loop
+	if freq <= 0
+		cycleDur := uSEC_ 
+	else
+		cycleDur := uSEC_ / freq
+	end if 
+	
+
+	declare volMin := -1 * VolRange / 2
+	declare volMax := VolRange / 2
+	declare stepVolMin := -1 * stepVolRange / 2
+	declare stepVolMax := stepVolRange / 2
+	
+	declare envClock := 0
+	declare ~volSaw_exp := 1.0
+	declare ~volSaw_envIdx := 0.0
+	declare volSaw_envStart 
+	declare volSaw_envEnd
+	declare volSaw_envCurrent
+	declare ~volSaw_volCurrent
+	declare ~volSquare_exp := 1.0
+	declare ~volSquare_envIdx := 0.0
+	declare volSquare_envStart
+	declare volSquare_envEnd
+	declare volSquare_envCurrent
+	declare ~volSquare_volCurrent
+
+	set_listener(NI_SIGNAL_TIMER_MS,cycleDur)
+
+end on 
+
+on listener
+	state := STATE.NEW // this triggers volume changes and new envelopes inside the NOTE_HELD while loop inside the note callback
+end on
+
+on note 
+	state := STATE.OFF
+	CCMONITOR.noteOn // resets variables in CCmonitor and triggers and sets bus routes for external groups
+
+	while NOTE_HELD = ON_ 
+		
+		if state = STATE.NEW // as set by the listener callback			
+			////////////////////////////
+			// RANDOM VOL CHANGE TO SAW AND SQUARE 
+			stepVol := 0 
+			while stepVol = 0
+				stepVol := random(stepVolMin, stepVolMax)
+			end while
+			volSaw := volSaw + stepVol
+			volSaw := wrap(volSaw,volMin,volMax)
+			volSquare := volSaw * -1
+			//\\\\\\\\\\\\\\\\\\\\\\\\\
+
+			////////////////////////////
+			// UPDATE THE VALUE OF THE VARIABLES FOR CCMONITOR
+			CCMONITOR.SetVarVal(stepVol)
+			CCMONITOR.SetVarVal(volSaw)
+			CCMONITOR.SetVarVal(volSquare)
+			
+			if volSaw > volSquare
+				state := STATE.SAW_LOUDER
+				CCMONITOR.click(sawLouderClickCC)
+			else if volSquare > volSaw
+				state := STATE.SQUARE_LOUDER
+				CCMONITOR.click(squareLouderClickCC)
+			else 
+				state := STATE.SAME_VOL
+			end if
+			CCMONITOR.SetVarVal(state)
+			//\\\\\\\\\\\\\\\\\\\\\\\\\
+
+			////////////////////////////
+			// INITIALISE NEW ENVELOPES
+
+			// get the starting point of the envelope from the engine (ep value)
+			volSaw_envStart := get_engine_par(ENGINE_PAR_VOLUME,find_group(groupSaw),-1,-1)
+			volSquare_envStart := get_engine_par(ENGINE_PAR_VOLUME,find_group(groupSquare),-1,-1)
+
+			// target vol as determined earlier on, translated in ep value
+			volSaw_envEnd := dB_to_ep(volSaw) 
+			volSquare_envEnd := dB_to_ep(volSquare)
+
+			// by updating the limit values of the envelope variables to CCMONITOR at each new envelope, 
+			// we will be able to visualise the shape of each envelope in full midi range scaled (0-127), regardless of the actual amount of volume change
+			CCMONITOR.SetVarMin(volSaw_envCurrent,volSaw_envStart) 
+			CCMONITOR.SetVarMax(volSaw_envCurrent,volSaw_envEnd)
+			CCMONITOR.SetVarMin(volSquare_envCurrent,volSquare_envStart)
+			CCMONITOR.SetVarMax(volSquare_envCurrent,volSquare_envEnd)
+
+			// this random parameter gives variety to the S-shape (sigma function) of the envelope
+			if random(0,1) = 0 // first part of the S steeper than the second part
+				~volSaw_exp := 1.0 / (int_to_real(random(100, 300)) / 100.0)
+			else  // second part of the S steeper than the first part
+				~volSaw_exp := 1.0 * (int_to_real(random(100, 300)) / 100.0)
+			end if
+			if random(0,1) = 0
+				~volSquare_exp := 1.0 / (int_to_real(random(100, 300)) / 100.0)
+			else  
+				~volSquare_exp := 1.0 * (int_to_real(random(100, 300)) / 100.0)
+			end if       					
+			envClock := 0 // reset
+		end if 
+
+		if state > STATE.NEW // execute envelopes following the triggering of the new volume changes (when state = STATE.NEW)
+
+			// the shape of this segment (ie, its progress from -5 to 5 for the duration of the envelope) determines the shape of the S curve envelopes.
+			// a line would determine a perfect symmetrical S shape envelope. etc. etc.
+			~volSaw_envIdx := scale.exp(int_to_real(envClock), 0.0, int_to_real(cycleDur-1), -5.0, 5.0, ~volSaw_exp)
+			~volSquare_envIdx := scale.exp(int_to_real(envClock), 0.0, int_to_real(cycleDur-1), -5.0, 5.0, ~volSquare_exp)
+
+			volSaw_envCurrent := real_to_int(scale(sigma(~volSaw_envIdx), 0.0, 1.0, int_to_real(volSaw_envStart), int_to_real(volSaw_envEnd)))
+			volSquare_envCurrent := real_to_int(scale(sigma(~volSquare_envIdx), 0.0, 1.0, int_to_real(volSquare_envStart), int_to_real(volSquare_envEnd)))
+
+			CCMONITOR.SetVarVal(volSaw_envCurrent)
+			CCMONITOR.SetVarVal(volSquare_envCurrent)
+
+			~volSaw_volCurrent := ep_to_dB(int_to_real(volSaw_envCurrent))
+
+			set_engine_par(ENGINE_PAR_VOLUME,volSaw_envCurrent,find_group(groupSaw),-1,-1)
+	        set_engine_par(ENGINE_PAR_VOLUME,volSquare_envCurrent,find_group(groupSquare),-1,-1)
+	    end if 
+
+		
+
+		envClock := envClock + envTick
+		///////////////////////////
+		// CCMONITOR
+		// This functions is going to periodically (here we're inside a NOTE_HELD loop) check the value of the "state" variable and the other variables that are being monitored
+		CCMONITOR.update()
+		//\\\\\\\\\\\\\\\\\\\\\\\\\
+		wait(envTick)		
+	end while 
+end on  
+
+on pgs_changed 	
+	CCMONITOR.pgs // !!! !!! !!!
+end on
+
+CCMONITOR.functions // !!! !!! !!!
+
+function sigma(n) -> return
+	return := 1.0 / (1.0 + pow(~NI_MATH_E,-1.0 * n))
+end function
+
+function scale(n, in_low, in_high, out_low, out_high) -> return
+    return := ((((n-in_low) * (out_high-out_low))/(in_high-in_low)) + out_low)
+end function
+
+function scale.exp(n, in_low, in_high, out_low, out_high, exponential) -> return
+    if (n-in_low)/(in_high-in_low) = 0.0 
+        return := out_low
+    else if (n-in_low)/(in_high-in_low) > 0.0
+        return := out_low + ((out_high-out_low) * pow((n-in_low)/(in_high-in_low),exponential))
+    else 
+        return := out_low + ((out_high-out_low) * (-1.0*pow((-1.0*n-in_low)/(in_high-in_low),exponential)))
+    end if
+end function
+
+function wrap(n,min,max) -> return
+	if n < min
+    	n := max - (min - n) mod (max - min)
+	else if n > max
+    	n := min + (n - min) mod (max - min)
+    end if 
+    return := n
+end function
+
+function dB_to_ep(n) -> return
+	return := real_to_int(pow(2.0, (int_to_real(n*1000) + 346768.2342478351) / 18000.0))
+end function
+
+function ep_to_dB(n) -> return 
+	return := (18000.0 * (log(n) / log(2.0)) - 346768.2342478351)
+end function
+
+
+
+
